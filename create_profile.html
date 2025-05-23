@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Messages</title>
+  <style>
+    /* Styles */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+    }
+
+    /* Navbar */
+    .navbar {
+      background-color: #0070f3;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 500px;
+      max-width: 90%;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+    }
+
+    .close-btn {
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .message {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .message.sent {
+      background-color: #d1e7ff;
+      text-align: right;
+    }
+
+    .message.received {
+      background-color: #e1f8e7;
+      text-align: left;
+    }
+
+    input[type="text"] {
+      width: 80%;
+      padding: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 18%;
+      padding: 0.8rem;
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background-color: #005bb5;
+    }
+
+    .search-results {
+      margin-top: 20px;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .search-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f0f0f0;
+      cursor: pointer;
+    }
+
+    .search-item:hover {
+      background-color: #e1e1e1;
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #f5b500;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      display: none;
+      cursor: pointer;
+    }
+/* Sent message (right-aligned) */
+.sent-message {
+  background-color: #d1e7ff;
+  text-align: right;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  max-width: 60%;
+  margin-left: auto;
+}
+
+/* Received message (left-aligned) */
+.received-message {
+  background-color: #e0f7fa;
+  text-align: left;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  max-width: 60%;
+  margin-right: auto;
+}
+
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <div class="navbar">
+    <a href="profile.html">Back to Profile</a>
+    <a href="logout.html">Logout</a>
+  </div>
+
+  <!-- Notification for new message -->
+  <div id="notification" class="notification">New Message</div>
+
+  <div class="container">
+    <h2>Search & Chat</h2>
+
+    <!-- Search Bar -->
+    <input type="text" id="searchInput" placeholder="Search users by name or username..." />
+
+    <!-- Search Results -->
+    <div id="searchResults" class="search-results">
+      <!-- Search results will appear here -->
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chatModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Chat with <span id="chatUserName"></span></h3>
+          <span class="close-btn" id="closeModalBtn">&times;</span>
+        </div>
+        <div id="modalMessages" class="modal-messages">
+          <!-- Chat messages will appear here -->
+        </div>
+        <input type="text" id="modalMessageInput" placeholder="Type a message..." />
+        <button id="sendModalMessageButton">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    // Initialize Supabase
+    const supabaseUrl = 'https://tjmaegohzduvalgreqan.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqbWFlZ29oemR1dmFsZ3JlcWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMDc1MDUsImV4cCI6MjA2MzU4MzUwNX0.DBZBXfJg0Wudqw7o6q0GLIaZDcpyVWFFgjuXjeJj65c';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Elements
+    const searchInput = document.getElementById('searchInput');
+    const searchResultsContainer = document.getElementById('searchResults');
+    const chatModal = document.getElementById('chatModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalMessages = document.getElementById('modalMessages');
+    const modalMessageInput = document.getElementById('modalMessageInput');
+    const sendModalMessageButton = document.getElementById('sendModalMessageButton');
+    const chatUserName = document.getElementById('chatUserName');
+    const notification = document.getElementById('notification');
+
+    let loggedInUser;
+    let receiverUid = null;
+
+    // Fetch logged-in user's session
+    async function getLoggedInUser() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        console.error('Error fetching session:', error);
+        return;
+      }
+
+      loggedInUser = session.user;
+    }
+
+    // Load messages between users
+    async function loadMessages() {
+      if (!receiverUid) return; // Don't load messages if no receiver is selected
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('sender_uid, receiver_uid, content, created_at')
+        .or(`sender_uid.eq.${loggedInUser.id},receiver_uid.eq.${loggedInUser.id}`)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading messages:', error);
+        return;
+      }
+
+      // Clear current messages
+      modalMessages.innerHTML = '';
+
+      // Display messages
+      data.forEach(message => {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', message.sender_uid === loggedInUser.id ? 'sent' : 'received');
+        messageElement.innerHTML = `
+          <p>${message.content}</p>
+          <small>${new Date(message.created_at).toLocaleTimeString()}</small>
+        `;
+        modalMessages.appendChild(messageElement);
+      });
+
+      // Scroll to the bottom of the messages
+      modalMessages.scrollTop = modalMessages.scrollHeight;
+    }
+
+    // Send a message in the modal
+   // Send a message and display it below the search bar
+async function sendMessage() {
+  const messageContent = modalMessageInput.value.trim();
+
+  if (!messageContent || !receiverUid) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('messages')
+    .insert([ { sender_uid: loggedInUser.id, receiver_uid: receiverUid, content: messageContent } ]);
+
+  if (error) {
+    console.error('Error sending message:', error);
+    return;
+  }
+
+  modalMessageInput.value = ''; // Clear input
+
+  // Get the logged-in user's username
+  const senderUsername = loggedInUser.user_metadata.username;
+
+  // Append message with sender's username to the permanent area below the search bar
+  const sentMessageElement = document.createElement('div');
+  sentMessageElement.classList.add('sent-message');
+  sentMessageElement.innerHTML = `
+    <p><strong>${senderUsername}:</strong> ${messageContent}</p>
+  `;
+  sentMessagesContainer.appendChild(sentMessageElement);
+
+  loadMessages(); // Reload chat messages (modal)
+}
+
+
+    // Search for users
+    async function searchUsers(query) {
+      if (!query) {
+        searchResultsContainer.innerHTML = '';
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, fullname, username')
+        .ilike('fullname', `%${query}%`)
+        .or(`username.ilike.%${query}%`);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        return;
+      }
+
+      // Clear current results
+      searchResultsContainer.innerHTML = '';
+
+      // Display search results
+      data.forEach(user => {
+        const resultItem = document.createElement('div');
+        resultItem.classList.add('search-item');
+        resultItem.textContent = `${user.fullname} (${user.username})`;
+        resultItem.onclick = () => selectUser(user.id, user.fullname);
+        searchResultsContainer.appendChild(resultItem);
+      });
+    }
+
+    // Handle user selection
+    function selectUser(userId, userName) {
+      receiverUid = userId;
+      chatUserName.textContent = userName;
+      loadMessages(); // Load messages for this user
+      chatModal.style.display = 'flex'; // Show modal
+    }
+
+    // Close modal
+    closeModalBtn.addEventListener('click', () => {
+      chatModal.style.display = 'none';
+    });
+
+    // Send message
+    sendModalMessageButton.addEventListener('click', sendMessage);
+
+    // Real-time notification for new messages
+    async function listenForNewMessages() {
+      const messageListener = supabase
+        .from(`messages:receiver_uid=eq.${loggedInUser.id}`)
+        .on('INSERT', payload => {
+          // Display notification for new message
+          notification.style.display = 'block';
+          notification.textContent = `New message from ${payload.new.sender_uid}`;
+        })
+        .subscribe();
+    }
+
+    // Call the necessary functions on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      getLoggedInUser();
+      listenForNewMessages();
+    });
+
+    // Clear notification and open modal
+    notification.addEventListener('click', () => {
+      notification.style.display = 'none';
+      chatModal.style.display = 'flex';
+    });
+
+    // Handle search input
+    searchInput.addEventListener('input', (event) => {
+      searchUsers(event.target.value);
+    });
+
+  </script>
+</body>
+</html>

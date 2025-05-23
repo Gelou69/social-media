@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messaging App</title>
+  <style>
+    /* Styling for the entire page */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f7fc;
+    }
+    .container {
+      width: 90%;
+      margin: 20px auto;
+      max-width: 900px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .message-box {
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+      overflow-y: scroll;
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+    }
+    .message {
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .message.sent {
+      background-color: #d1e7ff;
+      align-self: flex-start;
+    }
+    .message.received {
+      background-color: #e6f7e6;
+      align-self: flex-end;
+    }
+    .form-group {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .form-group input {
+      width: 80%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    .form-group button {
+      width: 15%;
+      background-color: #007bff;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .form-group button:hover {
+      background-color: #0056b3;
+    }
+    .error, .success {
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+      margin-top: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .error {
+      background-color: #f44336;
+    }
+    .success {
+      background-color: #4CAF50;
+    }
+    .search-container {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+    .search-container input {
+      width: 80%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    .user-list {
+      position: absolute;
+      top: 45px;
+      width: 80%;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      display: none;
+      z-index: 10;
+    }
+    .user-item {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      cursor: pointer;
+    }
+    .user-item:hover {
+      background-color: #e0e0e0;
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 60%;
+      max-height: 80%;
+      overflow-y: auto;
+    }
+    .modal-close {
+      color: red;
+      font-size: 20px;
+      cursor: pointer;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <a href="profile.html">back</a>
+  <div class="container">
+    <h1>Message App</h1>
+    <div id="message" class="message"></div>
+
+    <!-- Search Section -->
+    <div class="search-container">
+      <input type="text" id="userSearch" placeholder="Search for a user..." autocomplete="off" />
+      <div id="userList" class="user-list">
+        <!-- Search results will be shown here -->
+      </div>
+    </div>
+
+    <div id="messages" class="message-box">
+      <!-- Messages will be loaded here dynamically -->
+    </div>
+
+    <form id="messageForm">
+      <div class="form-group">
+        <input type="text" id="messageContent" placeholder="Type a message..." required>
+        <button type="submit">Send</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal -->
+  <div id="messageModal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close" id="modalClose">&times;</span>
+      <h2>Chat with <span id="modalUserName"></span></h2>
+      <div id="modalMessages" class="message-box"></div>
+      <form id="modalMessageForm">
+        <div class="form-group">
+          <input type="text" id="modalMessageContent" placeholder="Type a message..." required>
+          <button type="submit">Send</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    
+    // Initialize Supabase
+    const supabaseUrl = 'https://tjmaegohzduvalgreqan.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqbWFlZ29oemR1dmFsZ3JlcWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMDc1MDUsImV4cCI6MjA2MzU4MzUwNX0.DBZBXfJg0Wudqw7o6q0GLIaZDcpyVWFFgjuXjeJj65c';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+  
+    // DOM elements
+    const form = document.getElementById('messageForm');
+    const messageContent = document.getElementById('messageContent');
+    const messageEl = document.getElementById('message');
+    const messagesContainer = document.getElementById('messages');
+    const userSearch = document.getElementById('userSearch');
+    const userList = document.getElementById('userList');
+    const modal = document.getElementById('messageModal');
+    const modalUserName = document.getElementById('modalUserName');
+    const modalMessages = document.getElementById('modalMessages');
+    const modalMessageForm = document.getElementById('modalMessageForm');
+    const modalMessageContent = document.getElementById('modalMessageContent');
+    const modalClose = document.getElementById('modalClose');
+  
+    let selectedUserId = null;
+    let conversationId = null;
+    let sender_id = null; // Declare sender_id
+  
+    // Get the logged-in user's session
+    const fetchUserSession = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('Error fetching session:', sessionError);
+        return null;
+      }
+      sender_id = session.user.id; // Store sender_id
+      return session.user;
+    };
+  
+    // Get the username for a given user ID
+    const getUserName = async (userId) => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', userId)
+        .single();
+  
+      if (error) {
+        console.error('Error fetching user data:', error);
+        return null;
+      }
+  
+      return data.username;
+    };
+  
+    // Load the messages for the current conversation
+    const loadConversationMessages = async () => {
+      if (!conversationId) return;
+  
+      const { data: messages, error } = await supabase
+        .from('messages')
+        .select('id, content, sender_id, receiver_id, sent_at')
+        .eq('conversation_id', conversationId)
+        .order('sent_at', { ascending: true });
+  
+      if (error) {
+        console.error('Error fetching conversation messages:', error);
+        return;
+      }
+  
+      modalMessages.innerHTML = ''; // Clear existing messages
+  
+      for (const msg of messages) {
+        const senderUsername = await getUserName(msg.sender_id);
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', msg.sender_id === sender_id ? 'sent' : 'received');
+        messageDiv.innerHTML = `<strong>${senderUsername}:</strong> ${msg.content}`;
+        modalMessages.appendChild(messageDiv);
+      }
+    };
+  
+    // Open the modal for the selected user and conversation
+    const openModal = async (user) => {
+      selectedUserId = user.id;
+      modalUserName.textContent = user.username;
+      modal.style.display = 'flex';
+  
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`user1_id.eq.${sender_id},user2_id.eq.${sender_id}`)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+  
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        return;
+      }
+  
+      if (conversations.length > 0) {
+        conversationId = conversations[0].id;
+      } else {
+        const { data, error } = await supabase
+          .from('conversations')
+          .insert([{ user1_id: sender_id, user2_id: user.id }]);
+  
+        if (error) {
+          console.error('Error creating conversation:', error);
+          return;
+        }
+  
+        conversationId = data[0].id;
+      }
+  
+      loadConversationMessages(); // Load the messages for this conversation
+    };
+  
+    // Send a message in the conversation
+    modalMessageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = modalMessageContent.value.trim();
+      if (!content) return;
+  
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([{ content, sender_id, receiver_id: selectedUserId, conversation_id: conversationId, sent_at: new Date().toISOString() }]);
+  
+      if (error) {
+        console.error('Error sending message:', error);
+        return;
+      }
+  
+      modalMessageContent.value = ''; // Clear the message input
+      loadConversationMessages(); // Reload the conversation messages
+    });
+  
+    // Close the modal
+    modalClose.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+  
+    // Search users
+    userSearch.addEventListener('input', async (e) => {
+      const searchQuery = e.target.value.trim();
+      if (searchQuery.length < 3) {
+        userList.innerHTML = '';
+        userList.style.display = 'none';
+        return;
+      }
+  
+      try {
+        const { data: users, error } = await supabase
+          .from('users')
+          .select('id, username')
+          .ilike('username', `%${searchQuery}%`);
+  
+        if (error) {
+          console.error('Error searching users:', error);
+          return;
+        }
+  
+        userList.innerHTML = '';
+        if (users.length === 0) {
+          userList.innerHTML = '<div class="user-item">No users found</div>';
+        } else {
+          users.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.classList.add('user-item');
+            userItem.textContent = user.username;
+            userItem.addEventListener('click', () => {
+              openModal(user);
+              userList.style.display = 'none';
+            });
+            userList.appendChild(userItem);
+          });
+        }
+  
+        userList.style.display = 'block';
+      } catch (err) {
+        console.error('Error searching users:', err);
+      }
+    });
+  
+    // Close the user list when clicking outside of it
+    document.addEventListener('click', (e) => {
+      if (!userSearch.contains(e.target) && !userList.contains(e.target)) {
+        userList.style.display = 'none';
+      }
+    });
+  
+    // Fetch user session when the page loads
+    (async () => {
+      const user = await fetchUserSession();
+      if (!user) {
+        messageEl.textContent = 'You are not logged in.';
+        messageEl.classList.add('error');
+        setTimeout(() => {
+          window.location.href = 'login.html'; // Redirect to login page
+        }, 2000);
+      }
+    })();
+  
+  </script>
+  
+</body>
+</html>
